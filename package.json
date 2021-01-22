@@ -1,0 +1,30 @@
+{
+  "name": "@dazlab-team/loan-calc",
+  "version": "0.1.0",
+  "description": "Loan calculator written in TypeScript. OO interface. ARM (Adjustable Rate Mortgage) options. Interest only repayments. Extra monthly payments option. Adjustable repayment frequency.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --config=jest.config.json",
+    "prepublish": "npm test"
+  },
+  "keywords": [
+    "loan",
+    "mortgage",
+    "calculator",
+    "formulas",
+    "arm",
+    "repayments",
+    "interest",
+    "principal"
+  ],
+  "author": "Andrew Anisimov <andy@dazlab.io>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^22.1.4",
+    "jest": "^22.4.2",
+    "ts-jest": "^22.4.1",
+    "typescript": "^2.7.2"
+  }
+}
