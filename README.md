@@ -53,7 +53,7 @@ let loan = new Loan();
 loan.amount = 800000;
 loan.years = 25;
 loan.interestRate = 2.56;
-loan.interestOnlyRepaymentCount = 3;
+loan.interestOnlyRepaymentCount = 36;
 
 console.log(loan.totalCost);
 console.log(loan.totalInterest);
