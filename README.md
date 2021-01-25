@@ -53,7 +53,7 @@ let loan = new Loan();
 loan.amount = 800000;
 loan.years = 25;
 loan.interestRate = 2.56;
-loan.interestOnlyRepaymentCount = 36;
+loan.interestOnlyYears = 3;
 
 console.log(loan.totalCost);
 console.log(loan.totalInterest);
@@ -79,8 +79,8 @@ loan.interestRate = 2.56;
 loan.armInitialVariableRate = 1.86;
 loan.armMaximumInterestRate = 3.56;
 loan.armExpectedAdjustmentRate = 0.25;
-loan.armRepaymentCountBetweenAdjustments = 12;
-loan.armFixedRateForRepaymentCount = 12;
+loan.armMonthsBetweenAdjustments = 12;
+loan.armFixedRateForYears = 1;
 
 console.log(loan.totalCost);
 console.log(loan.totalInterest);

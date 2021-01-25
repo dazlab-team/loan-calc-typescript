@@ -159,6 +159,72 @@ test('Interest only 1 year mortgage (weekly)', () => {
     });
 });
 
+test('Should override interestOnlyRepaymentCount with interestOnlyYears and vice versa', () => {
+
+    const loan = newLoan(80000, 5, 2.56);
+    loan.repaymentFrequency = 'monthly';
+    loan.interestOnlyRepaymentCount = 12; // 1 year
+    expect(loan.interestOnlyYears).toEqual(1);
+    expect(loan.interestOnlyRepaymentCount).toEqual(12);
+
+    loan.interestOnlyYears = 2;
+    expect(loan.interestOnlyYears).toEqual(2);
+    expect(loan.interestOnlyRepaymentCount).toEqual(24);
+
+    loan.repaymentFrequency = 'quarterly';
+    expect(loan.interestOnlyYears).toEqual(2);
+    expect(loan.interestOnlyRepaymentCount).toEqual(8);
+
+    loan.interestOnlyRepaymentCount = 12;
+    expect(loan.interestOnlyYears).toEqual(3);
+    expect(loan.interestOnlyRepaymentCount).toEqual(12);
+});
+
+test('Should override armFixedRateForRepaymentCount with armFixedRateForYears and vice versa', () => {
+
+    const loan = newLoan(80000, 5, 2.56);
+    loan.repaymentFrequency = 'monthly';
+    loan.armFixedRateForRepaymentCount = 12; // 1 year
+    expect(loan.armFixedRateForYears).toEqual(1);
+    expect(loan.armFixedRateForRepaymentCount).toEqual(12);
+
+    loan.armFixedRateForYears = 2;
+    expect(loan.armFixedRateForYears).toEqual(2);
+    expect(loan.armFixedRateForRepaymentCount).toEqual(24);
+
+    loan.repaymentFrequency = 'quarterly';
+    expect(loan.armFixedRateForYears).toEqual(2);
+    expect(loan.armFixedRateForRepaymentCount).toEqual(8);
+
+    loan.armFixedRateForRepaymentCount = 12;
+    expect(loan.armFixedRateForYears).toEqual(3);
+    expect(loan.armFixedRateForRepaymentCount).toEqual(12);
+});
+
+test('Should override armRepaymentCountBetweenAdjustments with armMonthsBetweenAdjustments and vice versa', () => {
+
+    const loan = newLoan(80000, 5, 2.56);
+    loan.repaymentFrequency = 'monthly';
+    expect(loan.armMonthsBetweenAdjustments).toEqual(12);
+    expect(loan.armRepaymentCountBetweenAdjustments).toEqual(12);
+
+    loan.armRepaymentCountBetweenAdjustments = 12; // 1 year
+    expect(loan.armMonthsBetweenAdjustments).toEqual(12);
+    expect(loan.armRepaymentCountBetweenAdjustments).toEqual(12);
+
+    loan.armMonthsBetweenAdjustments = 24;
+    expect(loan.armMonthsBetweenAdjustments).toEqual(24);
+    expect(loan.armRepaymentCountBetweenAdjustments).toEqual(24);
+
+    loan.repaymentFrequency = 'quarterly';
+    expect(loan.armMonthsBetweenAdjustments).toEqual(24);
+    expect(loan.armRepaymentCountBetweenAdjustments).toEqual(8);
+
+    loan.armRepaymentCountBetweenAdjustments = 12;
+    expect(loan.armMonthsBetweenAdjustments).toEqual(36);
+    expect(loan.armRepaymentCountBetweenAdjustments).toEqual(12);
+});
+
 // test('ARM options', () => {
 //
 //     // https://www.commbank.com.au/home-loans/split-loan-calculator.html

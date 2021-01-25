@@ -61,9 +61,18 @@ export interface LoanInterface {
     extraPayment: number;
 
     /**
-     * Sets or gets the number of interest only repayments. Default is 0.
+     * Sets or gets the number of interest only repayments.
+     * Overrides one previously defined in years (below).
+     * Default is 0.
      */
     interestOnlyRepaymentCount: number;
+
+    /**
+     * Sets or gets the number of interest only repayments in years.
+     * Overrides one defined in repayment count (above).
+     * Default is 0.
+     */
+    interestOnlyYears: number;
 
     /**
      * Sets or gets the length of the fractional part for numbers used in calculation.
@@ -74,10 +83,19 @@ export interface LoanInterface {
     // ARM (Adjustable Rate Mortgage) options
 
     /**
-     * Sets or gets the ARM (Adjustable Rate Mortgage) period. Default is 0.
+     * Sets or gets the ARM (Adjustable Rate Mortgage) period.
+     * Overrides one previously defined in years (below).
+     * Default is 0.
      * @see https://www.valuepenguin.com/loans/fixed-vs-variable-interest-rates
      */
     armFixedRateForRepaymentCount: number;
+
+    /**
+     * Sets or gets the ARM (Adjustable Rate Mortgage) period in years.
+     * Overrides one previously defined in repayment count (above).
+     * Default is 0.
+     */
+    armFixedRateForYears: number;
 
     /**
      * Rate that will be used for calculating variable rate
@@ -87,9 +105,17 @@ export interface LoanInterface {
     armInitialVariableRate: number;
 
     /**
-     * Repayment count between ARM adjustments. 1 year by default.
+     * Repayment count between ARM adjustments.
+     * Overrides one previously defined in months (below).
      */
     armRepaymentCountBetweenAdjustments: number;
+
+    /**
+     * Sets or gets the ARM (Adjustable Rate Mortgage) adjustment period in months.
+     * Overrides one previously defined in repayment count (above).
+     * Default is 12.
+     */
+    armMonthsBetweenAdjustments: number;
 
     /**
      * Interest rate adjustment for ARM.
@@ -141,13 +167,16 @@ export class Loan implements LoanInterface {
     private _repaymentFrequency: RepaymentFrequency = 'monthly';
     private _extraPayment = 0;
     private _interestOnlyRepayments = 0;
+    private _interestOnlyYears = 0;
     private _totalCost = 0;
     private _totalInterest = 0;
     private _payments: LoanPayment[] = [];
     private _calculated = false;
     private _armFixedRateForRepaymentCount = 0;
+    private _armFixedRateForYears = 0;
     private _armVariableRate: number = 0;
-    private _armRepaymentCountBetweenAdjustments = 12;
+    private _armRepaymentCountBetweenAdjustments = 0;
+    private _armMonthsBetweenAdjustments = 12;
     private _armExpectedAdjustmentRate: number = 0;
     private _armMaximumInterestRate: number = 0;
     private _rounding = 8;
@@ -225,6 +254,9 @@ export class Loan implements LoanInterface {
     }
 
     get interestOnlyRepaymentCount(): number {
+        if (this._interestOnlyYears) {
+            return this._interestOnlyYears * this.paymentsCountPerYear;
+        }
         return this._interestOnlyRepayments;
     }
 
@@ -233,6 +265,23 @@ export class Loan implements LoanInterface {
             return;
         }
         this._interestOnlyRepayments = n;
+        this._interestOnlyYears = 0;
+        this._invalidate();
+    }
+
+    get interestOnlyYears(): number {
+        if (this._interestOnlyYears) {
+            return this._interestOnlyYears;
+        }
+        return this._interestOnlyRepayments / this.paymentsCountPerYear;
+    }
+
+    set interestOnlyYears(y: number) {
+        if (this._interestOnlyYears === y) {
+            return;
+        }
+        this._interestOnlyYears = y;
+        this._interestOnlyRepayments = 0;
         this._invalidate();
     }
 
@@ -249,6 +298,9 @@ export class Loan implements LoanInterface {
     }
 
     get armFixedRateForRepaymentCount(): number {
+        if (this._armFixedRateForYears) {
+            return this._armFixedRateForYears * this.paymentsCountPerYear;
+        }
         return this._armFixedRateForRepaymentCount;
     }
 
@@ -257,6 +309,23 @@ export class Loan implements LoanInterface {
             return;
         }
         this._armFixedRateForRepaymentCount = n;
+        this._armFixedRateForYears = 0;
+        this._invalidate();
+    }
+
+    get armFixedRateForYears(): number {
+        if (this._armFixedRateForYears) {
+            return this._armFixedRateForYears;
+        }
+        return this._armFixedRateForRepaymentCount / this.paymentsCountPerYear;
+    }
+
+    set armFixedRateForYears(y: number) {
+        if (this._armFixedRateForYears === y) {
+            return;
+        }
+        this._armFixedRateForRepaymentCount = 0;
+        this._armFixedRateForYears = y;
         this._invalidate();
     }
 
@@ -265,7 +334,11 @@ export class Loan implements LoanInterface {
     }
 
     set armInitialVariableRate(rate: number) {
+        if (this._armVariableRate === rate) {
+            return;
+        }
         this._armVariableRate = rate;
+        this._invalidate();
     }
 
     get armExpectedAdjustmentRate(): number {
@@ -273,15 +346,43 @@ export class Loan implements LoanInterface {
     }
 
     set armExpectedAdjustmentRate(rate: number) {
+        if (this._armExpectedAdjustmentRate === rate) {
+            return;
+        }
         this._armExpectedAdjustmentRate = rate;
+        this._invalidate();
     }
 
     get armRepaymentCountBetweenAdjustments(): number {
+        if (this._armMonthsBetweenAdjustments) {
+            return this._armMonthsBetweenAdjustments / 12 * this.paymentsCountPerYear;
+        }
         return this._armRepaymentCountBetweenAdjustments;
     }
 
     set armRepaymentCountBetweenAdjustments(m: number) {
+        if (this._armRepaymentCountBetweenAdjustments === m) {
+            return;
+        }
         this._armRepaymentCountBetweenAdjustments = m;
+        this._armMonthsBetweenAdjustments = 0;
+        this._invalidate();
+    }
+
+    get armMonthsBetweenAdjustments(): number {
+        if (this._armMonthsBetweenAdjustments) {
+            return this._armMonthsBetweenAdjustments;
+        }
+        return this._armRepaymentCountBetweenAdjustments / this.paymentsCountPerYear * 12;
+    }
+
+    set armMonthsBetweenAdjustments(m: number) {
+        if (this._armMonthsBetweenAdjustments === m) {
+            return;
+        }
+        this._armMonthsBetweenAdjustments = m;
+        this._armRepaymentCountBetweenAdjustments = 0;
+        this._invalidate();
     }
 
     get armMaximumInterestRate(): number {
@@ -289,7 +390,11 @@ export class Loan implements LoanInterface {
     }
 
     set armMaximumInterestRate(rate: number) {
+        if (this._armMaximumInterestRate === rate) {
+            return;
+        }
         this._armMaximumInterestRate = rate;
+        this._invalidate();
     }
 
     get paymentsCountPerYear(): number {
@@ -338,19 +443,21 @@ export class Loan implements LoanInterface {
 
     clone(): LoanInterface {
         const copy = new Loan();
-        copy.amount = this.amount;
-        copy.interestRate = this.interestRate;
-        copy.months = this.months;
-        copy.years = this.years;
-        copy.repaymentFrequency = this.repaymentFrequency;
-        copy.extraPayment = this.extraPayment;
-        copy.interestOnlyRepaymentCount = this.interestOnlyRepaymentCount;
-        copy.armFixedRateForRepaymentCount = this.armFixedRateForRepaymentCount;
-        copy.armInitialVariableRate = this.armInitialVariableRate;
-        copy.armRepaymentCountBetweenAdjustments = this.armRepaymentCountBetweenAdjustments;
-        copy.armExpectedAdjustmentRate = this.armExpectedAdjustmentRate;
-        copy.armMaximumInterestRate = this.armMaximumInterestRate;
-        copy.rounding = this.rounding;
+        copy._amount = this._amount;
+        copy._rate = this._rate;
+        copy._termInMonths = this._termInMonths;
+        copy._repaymentFrequency = this._repaymentFrequency;
+        copy._extraPayment = this._extraPayment;
+        copy._interestOnlyRepayments = this._interestOnlyRepayments;
+        copy._interestOnlyYears = this._interestOnlyYears;
+        copy._armFixedRateForRepaymentCount = this._armFixedRateForRepaymentCount;
+        copy._armFixedRateForYears = this._armFixedRateForYears;
+        copy._armVariableRate = this._armVariableRate;
+        copy._armRepaymentCountBetweenAdjustments = this._armRepaymentCountBetweenAdjustments;
+        copy._armMonthsBetweenAdjustments = this._armMonthsBetweenAdjustments;
+        copy._armExpectedAdjustmentRate = this._armExpectedAdjustmentRate;
+        copy._armMaximumInterestRate = this._armMaximumInterestRate;
+        copy._rounding = this._rounding;
         return copy;
     }
 
@@ -373,14 +480,14 @@ export class Loan implements LoanInterface {
 
         let rate = this.interestRate / this.paymentsCountPerYear / 100;
         const repayment = this.repaymentAmount;
-        const interestOnlyRepayments = this._interestOnlyRepayments;
-        const variableRate = this._armVariableRate / 12 / 100;
-        const adjustAfterRepayments = this._armFixedRateForRepaymentCount;
-        const adjustmentPeriod = this._armRepaymentCountBetweenAdjustments;
-        const adjustmentPercentage = this._armExpectedAdjustmentRate / 12 / 100;
-        const maxAdjustedRate = this._armMaximumInterestRate / 12 / 100;
+        const variableRate = this.armInitialVariableRate / 12 / 100;
+        const interestOnlyRepayments = this.interestOnlyRepaymentCount;
+        const adjustAfterRepayments = this.armFixedRateForRepaymentCount;
+        const adjustmentPeriod = this.armRepaymentCountBetweenAdjustments;
+        const adjustmentPercentage = this.armExpectedAdjustmentRate / 12 / 100;
+        const maxAdjustedRate = this.armMaximumInterestRate / 12 / 100;
         const doAdjustments = variableRate && adjustmentPercentage && maxAdjustedRate;
-        let balance = this._amount;
+        let balance = this.amount;
         for (let p = 0, n = this.paymentsCountTotal; balance > 0 && p < n; ++p) {
             if (doAdjustments) {
                 if (p === adjustAfterRepayments) {
@@ -393,7 +500,7 @@ export class Loan implements LoanInterface {
                 }
             }
             const extra = p >= interestOnlyRepayments
-                ? this._extraPayment : 0;
+                ? this.extraPayment : 0;
             const interest = this._round(rate * balance);
             const amount = p >= interestOnlyRepayments
                 ? this._round(Math.min(repayment + extra, balance + interest))
