@@ -1,6 +1,6 @@
 {
   "name": "@dazlab-team/loan-calc",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Loan calculator written in TypeScript. OO interface. ARM (Adjustable Rate Mortgage) options. Interest only repayments. Extra monthly payments option. Adjustable repayment frequency.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,12 +23,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dazlab-team/loan-calc.git"
+    "url": "git+https://github.com/dazlab-team/loan-calc-typescript.git"
   },
   "bugs": {
-    "url": "https://github.com/dazlab-team/loan-calc/issues"
+    "url": "https://github.com/dazlab-team/loan-calc-typescript/issues"
   },
-  "homepage": "https://github.com/dazlab-team/loan-calc#readme",
+  "homepage": "https://github.com/dazlab-team/loan-calc-typescript#readme",
   "devDependencies": {
     "@types/jest": "^22.1.4",
     "jest": "^22.4.2",
