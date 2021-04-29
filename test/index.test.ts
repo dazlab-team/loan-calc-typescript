@@ -4,13 +4,14 @@ import {Loan, RepaymentFrequency} from '../src';
 // https://www.commbank.com.au/digital/home-buying/calculator/home-loan-repayments
 // https://moneysmart.gov.au/home-loans/interest-only-mortgage-calculator
 // https://www.yourmortgage.com.au/calculators/extra-lump-sum-payment/
+// https://www.savings.com.au/home-loans/monthly-fortnightly-weekly-mortgage-repayments
 
 interface TestExpectation {
-    totalInterest: number;
-    totalCost: number;
-    repaymentAmount: number;
-    paymentsPerYear: number;
-    paymentsTotal: number;
+    totalInterest?: number;
+    totalCost?: number;
+    repaymentAmount?: number;
+    paymentsPerYear?: number;
+    paymentsTotal?: number;
     interestOnlyRepayment?: number | undefined;
     interestOnlyCostDiff?: number | undefined;
 }
@@ -21,7 +22,9 @@ interface TestOptions {
     years: number;
     rate: number;
     interestOnlyRepaymentCount?: number | undefined;
-    expect: TestExpectation
+    calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments?: boolean;
+    rounding?: number;
+    expect: TestExpectation;
 }
 
 function newLoan(amount: number, years: number, rate: number): Loan {
@@ -121,13 +124,14 @@ test('Interest only 1 year mortgage (monthly)', () => {
     });
 });
 
-test('Interest only 1 year mortgage (fortnightly)', () => {
+test('Interest only 1 year mortgage (fortnightly calculated from yearly repayments)', () => {
     testLoanProperties({
         frequency: 'fortnightly',
         amount: 800_000,
         years: 5,
         rate: 2.56,
         interestOnlyRepaymentCount: 26,
+        calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments: true,
         expect: {
             totalInterest: 62_532,
             totalCost: 862_532,
@@ -140,13 +144,14 @@ test('Interest only 1 year mortgage (fortnightly)', () => {
     });
 });
 
-test('Interest only 1 year mortgage (weekly)', () => {
+test('Interest only 1 year mortgage (weekly calculated from yearly repayments)', () => {
     testLoanProperties({
         frequency: 'weekly',
         amount: 800_000,
         years: 5,
         rate: 2.56,
         interestOnlyRepaymentCount: 52,
+        calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments: true,
         expect: {
             totalInterest: 62_336,
             totalCost: 862_336,
@@ -155,6 +160,90 @@ test('Interest only 1 year mortgage (weekly)', () => {
             paymentsPerYear: 52,
             paymentsTotal: 52 * 5,
             interestOnlyCostDiff: 9_847
+        }
+    });
+});
+
+test('1 year mortgage (fixed rate, monthly)', () => {
+    // see https://www.savings.com.au/calculators/repayment-frequency-calculator
+    testLoanProperties({
+        frequency: 'monthly',
+        amount: 500_000,
+        years: 1,
+        rate: 2.49,
+        expect: {
+            repaymentAmount: 42_230.78,
+            totalInterest: 6_769.37
+        }
+    });
+});
+
+test('1 year mortgage (fixed rate, fortnightly)', () => {
+    // see https://www.savings.com.au/calculators/repayment-frequency-calculator
+    testLoanProperties({
+        frequency: 'fortnightly',
+        amount: 500_000,
+        years: 1,
+        rate: 2.49,
+        expect: {
+            repaymentAmount: 21_115.39,
+            totalInterest: 5999.09
+        }
+    });
+});
+
+test('1 year mortgage (fixed rate, weekly)', () => {
+    // see https://www.savings.com.au/calculators/repayment-frequency-calculator
+    testLoanProperties({
+        frequency: 'weekly',
+        amount: 500_000,
+        years: 1,
+        rate: 2.49,
+        expect: {
+            repaymentAmount: 10_557.70,
+            totalInterest: 5_877.91
+        }
+    });
+});
+
+test('20 years mortgage (fixed rate, monthly)', () => {
+    // see https://www.savings.com.au/calculators/repayment-frequency-calculator
+    testLoanProperties({
+        frequency: 'monthly',
+        amount: 500_000,
+        years: 20,
+        rate: 2.49,
+        expect: {
+            repaymentAmount: 2_647.08,
+            totalInterest: 135_299.00
+        }
+    });
+});
+
+test('20 years mortgage (fixed rate, fortnightly)', () => {
+    // see https://www.savings.com.au/calculators/repayment-frequency-calculator
+    testLoanProperties({
+        frequency: 'fortnightly',
+        amount: 500_000,
+        years: 20,
+        rate: 2.49,
+        expect: {
+            repaymentAmount: 1_323.54,
+            totalInterest: 120_945.31
+        }
+    });
+});
+
+test('20 years mortgage (fixed rate, weekly)', () => {
+    // see https://www.savings.com.au/calculators/repayment-frequency-calculator
+    testLoanProperties({
+        frequency: 'weekly',
+        amount: 500_000,
+        years: 20,
+        rate: 2.49,
+        expect: {
+            repaymentAmount: 661.77,
+            totalInterest: 120_796.55
         }
     });
 });
@@ -242,37 +331,61 @@ test('Should override armRepaymentCountBetweenAdjustments with armMonthsBetweenA
 function testLoanProperties(options: TestOptions) {
     const loan = newLoan(options.amount, options.years, options.rate);
     loan.repaymentFrequency = options.frequency;
+
     if (options.interestOnlyRepaymentCount !== undefined) {
         loan.interestOnlyRepaymentCount = options.interestOnlyRepaymentCount;
     }
-    expect(loan.totalInterest.toFixed(0)).toEqual(options.expect.totalInterest.toFixed(0));
-    expect(loan.totalCost.toFixed(0)).toEqual(options.expect.totalCost.toFixed(0));
-    expect(loan.repaymentAmount.toFixed(0)).toEqual(options.expect.repaymentAmount.toFixed(0));
-    expect(loan.paymentsCountPerYear).toEqual(options.expect.paymentsPerYear);
-    expect(loan.paymentsCountTotal).toEqual(options.expect.paymentsTotal);
-    expect(loan.payments.length).toEqual(options.expect.paymentsTotal);
 
-    if (options.interestOnlyRepaymentCount && options.expect.interestOnlyRepayment) {
-        let interestOnlyRepayments = loan.payments.slice(0, options.interestOnlyRepaymentCount);
-        expect(interestOnlyRepayments.map(p => p.amount.toFixed(0)))
-            .toEqual(new Array(options.expect.paymentsPerYear).fill(options.expect.interestOnlyRepayment.toFixed(0)));
-        expect(interestOnlyRepayments.map(p => p.interest.toFixed(0)))
-            .toEqual(new Array(options.expect.paymentsPerYear).fill(options.expect.interestOnlyRepayment.toFixed(0)));
-        expect(interestOnlyRepayments.map(p => p.balance.toFixed(0)))
-            .toEqual(new Array(options.expect.paymentsPerYear).fill(options.amount.toFixed(0)));
-        expect(interestOnlyRepayments.map(p => p.principal.toFixed(0)))
-            .toEqual(new Array(options.expect.paymentsPerYear).fill('0'));
+    if (options.calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments) {
+        loan.calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments = true;
     }
 
-    let principalRepaymentCount = options.expect.paymentsTotal - (options.interestOnlyRepaymentCount || 0);
-    let otherRepayments = loan.payments.slice(options.interestOnlyRepaymentCount);
-    expect(otherRepayments.length).toEqual(principalRepaymentCount);
-    expect(otherRepayments.map(p => p.balance.toFixed(0)))
-        .not.toEqual(new Array(principalRepaymentCount).fill('0'));
-    expect(otherRepayments.map(p => p.amount.toFixed(0)))
-        .toEqual(new Array(principalRepaymentCount).fill(options.expect.repaymentAmount.toFixed(0)));
-    expect(otherRepayments[principalRepaymentCount - 2].balance.toFixed(0)).not.toEqual('0');
-    expect(otherRepayments[principalRepaymentCount - 1].balance.toFixed(0)).toEqual('0');
+    if (options.rounding !== undefined) {
+        loan.rounding = options.rounding;
+    }
+
+    if (options.expect.repaymentAmount !== undefined) {
+        expect(loan.repaymentAmount.toFixed(0)).toEqual(options.expect.repaymentAmount.toFixed(0));
+    }
+
+    if (options.expect.totalInterest !== undefined) {
+        expect(loan.totalInterest.toFixed(0)).toEqual(options.expect.totalInterest.toFixed(0));
+    }
+
+    if (options.expect.totalCost !== undefined) {
+        expect(loan.totalCost.toFixed(0)).toEqual(options.expect.totalCost.toFixed(0));
+    }
+
+    if (options.expect.paymentsPerYear !== undefined) {
+        expect(loan.paymentsCountPerYear).toEqual(options.expect.paymentsPerYear);
+        if (options.interestOnlyRepaymentCount && options.expect.interestOnlyRepayment) {
+            let interestOnlyRepayments = loan.payments.slice(0, options.interestOnlyRepaymentCount);
+            expect(interestOnlyRepayments.map(p => p.amount.toFixed(0)))
+                .toEqual(new Array(options.expect.paymentsPerYear).fill(options.expect.interestOnlyRepayment.toFixed(0)));
+            expect(interestOnlyRepayments.map(p => p.interest.toFixed(0)))
+                .toEqual(new Array(options.expect.paymentsPerYear).fill(options.expect.interestOnlyRepayment.toFixed(0)));
+            expect(interestOnlyRepayments.map(p => p.balance.toFixed(0)))
+                .toEqual(new Array(options.expect.paymentsPerYear).fill(options.amount.toFixed(0)));
+            expect(interestOnlyRepayments.map(p => p.principal.toFixed(0)))
+                .toEqual(new Array(options.expect.paymentsPerYear).fill('0'));
+        }
+    }
+
+    if (options.expect.paymentsTotal !== undefined) {
+
+        expect(loan.paymentsCountTotal).toEqual(options.expect.paymentsTotal);
+        expect(loan.payments.length).toEqual(options.expect.paymentsTotal);
+
+        let principalRepaymentCount = options.expect.paymentsTotal - (options.interestOnlyRepaymentCount || 0);
+        let otherRepayments = loan.payments.slice(options.interestOnlyRepaymentCount);
+        expect(otherRepayments.length).toEqual(principalRepaymentCount);
+        expect(otherRepayments.map(p => p.balance.toFixed(0)))
+            .not.toEqual(new Array(principalRepaymentCount).fill('0'));
+        expect(otherRepayments.map(p => p.amount.toFixed(0)))
+            .toEqual(new Array(principalRepaymentCount).fill(options.expect.repaymentAmount.toFixed(0)));
+        expect(otherRepayments[principalRepaymentCount - 2].balance.toFixed(0)).not.toEqual('0');
+        expect(otherRepayments[principalRepaymentCount - 1].balance.toFixed(0)).toEqual('0');
+    }
 
     if (options.expect.interestOnlyCostDiff) {
         const copy = loan.clone();

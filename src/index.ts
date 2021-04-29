@@ -75,6 +75,15 @@ export interface LoanInterface {
     interestOnlyYears: number;
 
     /**
+     * Whether to calculate weekly and fortnightly repayments based on the
+     * yearly repayment amount, instead of deriving it from monthly repayment.
+     * Default is false, which means to derive weekly and fortnightly repayment
+     * amount from monthly repayments, decreasing the total cost of the loan.
+     * See https://www.savings.com.au/home-loans/monthly-fortnightly-weekly-mortgage-repayments
+     */
+    calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments: boolean;
+
+    /**
      * Sets or gets the length of the fractional part for numbers used in calculation.
      * Default is 8.
      */
@@ -162,24 +171,12 @@ export interface LoanInterface {
 
 export class Loan implements LoanInterface {
     private _rate: number = 0;
-    private _amount: number = 0;
     private _termInMonths: number = 0;
-    private _repaymentFrequency: RepaymentFrequency = 'monthly';
-    private _extraPayment = 0;
     private _interestOnlyRepayments = 0;
-    private _interestOnlyYears = 0;
-    private _totalCost = 0;
-    private _totalInterest = 0;
-    private _payments: LoanPayment[] = [];
     private _calculated = false;
-    private _armFixedRateForRepaymentCount = 0;
-    private _armFixedRateForYears = 0;
     private _armVariableRate: number = 0;
-    private _armRepaymentCountBetweenAdjustments = 0;
-    private _armMonthsBetweenAdjustments = 12;
-    private _armExpectedAdjustmentRate: number = 0;
-    private _armMaximumInterestRate: number = 0;
-    private _rounding = 8;
+
+    private _amount: number = 0;
 
     get amount(): number {
         return this._amount;
@@ -190,6 +187,198 @@ export class Loan implements LoanInterface {
             return;
         }
         this._amount = amount;
+        this._invalidate();
+    }
+
+    private _repaymentFrequency: RepaymentFrequency = 'monthly';
+
+    get repaymentFrequency(): RepaymentFrequency {
+        return this._repaymentFrequency;
+    }
+
+    set repaymentFrequency(f: RepaymentFrequency) {
+        if (this._repaymentFrequency === f) {
+            return;
+        }
+        this._repaymentFrequency = f;
+        this._invalidate();
+    }
+
+    private _extraPayment = 0;
+
+    get extraPayment(): number {
+        return this._extraPayment;
+    }
+
+    set extraPayment(p: number) {
+        if (this._extraPayment === p) {
+            return;
+        }
+        this._extraPayment = p;
+        this._invalidate();
+    }
+
+    private _interestOnlyYears = 0;
+
+    get interestOnlyYears(): number {
+        if (this._interestOnlyYears) {
+            return this._interestOnlyYears;
+        }
+        return this._interestOnlyRepayments / this.paymentsCountPerYear;
+    }
+
+    set interestOnlyYears(y: number) {
+        if (this._interestOnlyYears === y) {
+            return;
+        }
+        this._interestOnlyYears = y;
+        this._interestOnlyRepayments = 0;
+        this._invalidate();
+    }
+
+    private _calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments = false;
+
+    get calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments(): boolean {
+        return this._calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments;
+    }
+
+    set calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments(value: boolean) {
+        this._calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments = value;
+        this._invalidate();
+    }
+
+    private _totalCost = 0;
+
+    get totalCost(): number {
+        this._calculate();
+        return this._totalCost;
+    }
+
+    private _totalInterest = 0;
+
+    get totalInterest(): number {
+        this._calculate();
+        return this._totalInterest;
+    }
+
+    private _payments: LoanPayment[] = [];
+
+    get payments(): LoanPayment[] {
+        this._calculate();
+        return this._payments;
+    }
+
+    private _armFixedRateForRepaymentCount = 0;
+
+    get armFixedRateForRepaymentCount(): number {
+        if (this._armFixedRateForYears) {
+            return this._armFixedRateForYears * this.paymentsCountPerYear;
+        }
+        return this._armFixedRateForRepaymentCount;
+    }
+
+    set armFixedRateForRepaymentCount(n: number) {
+        if (this._armFixedRateForRepaymentCount === n) {
+            return;
+        }
+        this._armFixedRateForRepaymentCount = n;
+        this._armFixedRateForYears = 0;
+        this._invalidate();
+    }
+
+    private _armFixedRateForYears = 0;
+
+    get armFixedRateForYears(): number {
+        if (this._armFixedRateForYears) {
+            return this._armFixedRateForYears;
+        }
+        return this._armFixedRateForRepaymentCount / this.paymentsCountPerYear;
+    }
+
+    set armFixedRateForYears(y: number) {
+        if (this._armFixedRateForYears === y) {
+            return;
+        }
+        this._armFixedRateForRepaymentCount = 0;
+        this._armFixedRateForYears = y;
+        this._invalidate();
+    }
+
+    private _armRepaymentCountBetweenAdjustments = 0;
+
+    get armRepaymentCountBetweenAdjustments(): number {
+        if (this._armMonthsBetweenAdjustments) {
+            return this._armMonthsBetweenAdjustments / 12 * this.paymentsCountPerYear;
+        }
+        return this._armRepaymentCountBetweenAdjustments;
+    }
+
+    set armRepaymentCountBetweenAdjustments(m: number) {
+        if (this._armRepaymentCountBetweenAdjustments === m) {
+            return;
+        }
+        this._armRepaymentCountBetweenAdjustments = m;
+        this._armMonthsBetweenAdjustments = 0;
+        this._invalidate();
+    }
+
+    private _armMonthsBetweenAdjustments = 12;
+
+    get armMonthsBetweenAdjustments(): number {
+        if (this._armMonthsBetweenAdjustments) {
+            return this._armMonthsBetweenAdjustments;
+        }
+        return this._armRepaymentCountBetweenAdjustments / this.paymentsCountPerYear * 12;
+    }
+
+    set armMonthsBetweenAdjustments(m: number) {
+        if (this._armMonthsBetweenAdjustments === m) {
+            return;
+        }
+        this._armMonthsBetweenAdjustments = m;
+        this._armRepaymentCountBetweenAdjustments = 0;
+        this._invalidate();
+    }
+
+    private _armExpectedAdjustmentRate: number = 0;
+
+    get armExpectedAdjustmentRate(): number {
+        return this._armExpectedAdjustmentRate;
+    }
+
+    set armExpectedAdjustmentRate(rate: number) {
+        if (this._armExpectedAdjustmentRate === rate) {
+            return;
+        }
+        this._armExpectedAdjustmentRate = rate;
+        this._invalidate();
+    }
+
+    private _armMaximumInterestRate: number = 0;
+
+    get armMaximumInterestRate(): number {
+        return this._armMaximumInterestRate;
+    }
+
+    set armMaximumInterestRate(rate: number) {
+        if (this._armMaximumInterestRate === rate) {
+            return;
+        }
+        this._armMaximumInterestRate = rate;
+        this._invalidate();
+    }
+
+    private _rounding = 8;
+
+    get rounding(): number {
+        return this._rounding;
+    }
+
+    set rounding(r: number) {
+        if (this._rounding === r) {
+            return;
+        }
+        this._rounding = r;
         this._invalidate();
     }
 
@@ -229,30 +418,6 @@ export class Loan implements LoanInterface {
         this._invalidate();
     }
 
-    get repaymentFrequency(): RepaymentFrequency {
-        return this._repaymentFrequency;
-    }
-
-    set repaymentFrequency(f: RepaymentFrequency) {
-        if (this._repaymentFrequency === f) {
-            return;
-        }
-        this._repaymentFrequency = f;
-        this._invalidate();
-    }
-
-    get extraPayment(): number {
-        return this._extraPayment;
-    }
-
-    set extraPayment(p: number) {
-        if (this._extraPayment === p) {
-            return;
-        }
-        this._extraPayment = p;
-        this._invalidate();
-    }
-
     get interestOnlyRepaymentCount(): number {
         if (this._interestOnlyYears) {
             return this._interestOnlyYears * this.paymentsCountPerYear;
@@ -269,66 +434,6 @@ export class Loan implements LoanInterface {
         this._invalidate();
     }
 
-    get interestOnlyYears(): number {
-        if (this._interestOnlyYears) {
-            return this._interestOnlyYears;
-        }
-        return this._interestOnlyRepayments / this.paymentsCountPerYear;
-    }
-
-    set interestOnlyYears(y: number) {
-        if (this._interestOnlyYears === y) {
-            return;
-        }
-        this._interestOnlyYears = y;
-        this._interestOnlyRepayments = 0;
-        this._invalidate();
-    }
-
-    get rounding(): number {
-        return this._rounding;
-    }
-
-    set rounding(r: number) {
-        if (this._rounding === r) {
-            return;
-        }
-        this._rounding = r;
-        this._invalidate();
-    }
-
-    get armFixedRateForRepaymentCount(): number {
-        if (this._armFixedRateForYears) {
-            return this._armFixedRateForYears * this.paymentsCountPerYear;
-        }
-        return this._armFixedRateForRepaymentCount;
-    }
-
-    set armFixedRateForRepaymentCount(n: number) {
-        if (this._armFixedRateForRepaymentCount === n) {
-            return;
-        }
-        this._armFixedRateForRepaymentCount = n;
-        this._armFixedRateForYears = 0;
-        this._invalidate();
-    }
-
-    get armFixedRateForYears(): number {
-        if (this._armFixedRateForYears) {
-            return this._armFixedRateForYears;
-        }
-        return this._armFixedRateForRepaymentCount / this.paymentsCountPerYear;
-    }
-
-    set armFixedRateForYears(y: number) {
-        if (this._armFixedRateForYears === y) {
-            return;
-        }
-        this._armFixedRateForRepaymentCount = 0;
-        this._armFixedRateForYears = y;
-        this._invalidate();
-    }
-
     get armInitialVariableRate(): number {
         return this._armVariableRate;
     }
@@ -338,62 +443,6 @@ export class Loan implements LoanInterface {
             return;
         }
         this._armVariableRate = rate;
-        this._invalidate();
-    }
-
-    get armExpectedAdjustmentRate(): number {
-        return this._armExpectedAdjustmentRate;
-    }
-
-    set armExpectedAdjustmentRate(rate: number) {
-        if (this._armExpectedAdjustmentRate === rate) {
-            return;
-        }
-        this._armExpectedAdjustmentRate = rate;
-        this._invalidate();
-    }
-
-    get armRepaymentCountBetweenAdjustments(): number {
-        if (this._armMonthsBetweenAdjustments) {
-            return this._armMonthsBetweenAdjustments / 12 * this.paymentsCountPerYear;
-        }
-        return this._armRepaymentCountBetweenAdjustments;
-    }
-
-    set armRepaymentCountBetweenAdjustments(m: number) {
-        if (this._armRepaymentCountBetweenAdjustments === m) {
-            return;
-        }
-        this._armRepaymentCountBetweenAdjustments = m;
-        this._armMonthsBetweenAdjustments = 0;
-        this._invalidate();
-    }
-
-    get armMonthsBetweenAdjustments(): number {
-        if (this._armMonthsBetweenAdjustments) {
-            return this._armMonthsBetweenAdjustments;
-        }
-        return this._armRepaymentCountBetweenAdjustments / this.paymentsCountPerYear * 12;
-    }
-
-    set armMonthsBetweenAdjustments(m: number) {
-        if (this._armMonthsBetweenAdjustments === m) {
-            return;
-        }
-        this._armMonthsBetweenAdjustments = m;
-        this._armRepaymentCountBetweenAdjustments = 0;
-        this._invalidate();
-    }
-
-    get armMaximumInterestRate(): number {
-        return this._armMaximumInterestRate;
-    }
-
-    set armMaximumInterestRate(rate: number) {
-        if (this._armMaximumInterestRate === rate) {
-            return;
-        }
-        this._armMaximumInterestRate = rate;
         this._invalidate();
     }
 
@@ -417,6 +466,17 @@ export class Loan implements LoanInterface {
     }
 
     get repaymentAmount(): number {
+        if (!this._calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments) {
+            switch (this._repaymentFrequency) {
+                case 'weekly':
+                case 'fortnightly':
+                    const monthly = this.clone();
+                    monthly.repaymentFrequency = 'monthly';
+                    return 'weekly' === this.repaymentFrequency
+                        ? monthly.repaymentAmount / 4
+                        : monthly.repaymentAmount / 2;
+            }
+        }
         const ppy = this.paymentsCountPerYear;
         const paymentsTotal = this.paymentsCountTotal;
         const interestOnlyRepayments = this._interestOnlyRepayments;
@@ -424,21 +484,6 @@ export class Loan implements LoanInterface {
         const x = Math.pow(1 + interest, paymentsTotal - interestOnlyRepayments);
         const amount = (this._amount * x * interest) / (x - 1);
         return this._round(amount);
-    }
-
-    get totalCost(): number {
-        this._calculate();
-        return this._totalCost;
-    }
-
-    get totalInterest(): number {
-        this._calculate();
-        return this._totalInterest;
-    }
-
-    get payments(): LoanPayment[] {
-        this._calculate();
-        return this._payments;
     }
 
     clone(): LoanInterface {
@@ -450,6 +495,7 @@ export class Loan implements LoanInterface {
         copy._extraPayment = this._extraPayment;
         copy._interestOnlyRepayments = this._interestOnlyRepayments;
         copy._interestOnlyYears = this._interestOnlyYears;
+        copy._calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments = this._calculateWeeklyAndFortnightlyRepaymentsBasedOnYearlyRepayments;
         copy._armFixedRateForRepaymentCount = this._armFixedRateForRepaymentCount;
         copy._armFixedRateForYears = this._armFixedRateForYears;
         copy._armVariableRate = this._armVariableRate;
@@ -465,6 +511,10 @@ export class Loan implements LoanInterface {
         this._calculated = false;
     }
 
+    private _calcInterestRateForPeriod(): number {
+        return this.interestRate / this.paymentsCountPerYear / 100;
+    }
+
     private _calculate() {
         if (this._calculated) {
             return;
@@ -478,7 +528,7 @@ export class Loan implements LoanInterface {
         this._totalInterest = 0;
         this._totalCost = 0;
 
-        let rate = this.interestRate / this.paymentsCountPerYear / 100;
+        let rate = this._calcInterestRateForPeriod();
         const repayment = this.repaymentAmount;
         const variableRate = this.armInitialVariableRate / 12 / 100;
         const interestOnlyRepayments = this.interestOnlyRepaymentCount;
