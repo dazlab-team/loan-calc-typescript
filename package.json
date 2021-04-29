@@ -1,6 +1,6 @@
 {
   "name": "@dazlab-team/loan-calc",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Loan calculator written in TypeScript. OO interface. ARM (Adjustable Rate Mortgage) options. Interest only repayments. Extra monthly payments option. Adjustable repayment frequency.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

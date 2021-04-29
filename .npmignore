@@ -1,0 +1,5 @@
+*
+!dist/index.d.ts
+!dist/index.js
+!LICENSE
+!package.json
